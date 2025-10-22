@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYAN-DROP: 3D Keyboard Configurator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Three.js for 3D rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Load Tone.js for sound simulation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <!-- Load Lucide Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@latest/css/lucide.css">
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-dark': '#121212',
+                        'accent-cyan': '#00FFFF',
+                        'text-light': '#E0E0E0',
+                        'border-dark': '#333333',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Global Dark Theme Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #E0E0E0;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        #three-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .component-item {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .component-item:hover {
+            background-color: rgba(0, 255, 255, 0.05);
+        }
+        .component-item.selected {
+            border-color: #00FFFF;
+            background-color: rgba(0, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen antialiased">
+
+    <!-- Top Header -->
+    <header class="p-4 border-b border-border-dark flex justify-between items-center sticky top-0 bg-primary-dark z-10">
+        <h1 class="text-xl font-bold text-accent-cyan tracking-wider">CYAN-DROP</h1>
+        <div class="flex items-center space-x-4">
+            <button onclick="showMessage('Checking for exclusive drops...')" class="text-text-light hover:text-accent-cyan transition-colors">
+                <i data-lucide="bell" class="w-6 h-6"></i>
+            </button>
+            <button onclick="changeScreen('profile')" class="text-text-light hover:text-accent-cyan transition-colors">
+                <i data-lucide="user" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area: Configurator (Left Panel) and 3D View (Right) -->
+    <main class="flex flex-1 overflow-hidden">
+
+        <!-- Customization Panel (Left) -->
+        <aside id="config-panel" class="w-full lg:w-96 p-4 border-r border-border-dark overflow-y-auto flex flex-col bg-primary-dark/95 z-10 transition-transform duration-300 lg:translate-x-0">
+            <h2 class="text-2xl font-extrabold mb-6">3D Build Configurator</h2>
+            
+            <!-- Component Selection -->
+            <div id="component-selector" class="space-y-6 flex-1">
+                <div id="case-selection">
+                    <h3 class="text-lg font-semibold border-b border-border-dark pb-2 mb-3 text-accent-cyan">1. Keyboard Case</h3>
+                    <div class="space-y-2">
+                        <!-- Component Item (Example) -->
+                        <div data-component-type="case" data-component-id="cyber_alu" data-color="#333333" onclick="selectComponent('case', 'cyber_alu', this)" class="component-item border border-border-dark p-3 rounded-lg flex items-center justify-between">
+                            <span class="font-medium">Cyber-Alu (TKL)</span>
+                            <span class="text-sm text-accent-cyan">$299</span>
+                        </div>
+                        <div data-component-type="case" data-component-id="stealth_poly" data-color="#000000" onclick="selectComponent('case', 'stealth_poly', this)" class="component-item border border-border-dark p-3 rounded-lg flex items-center justify-between">
+                            <span class="font-medium">Stealth Poly (65%)</span>
+                            <span class="text-sm text-accent-cyan">$180</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="switch-selection">
+                    <h3 class="text-lg font-semibold border-b border-border-dark pb-2 mb-3 text-accent-cyan">2. Switches (Linear)</h3>
+                    <div class="space-y-2">
+                        <div data-component-type="switch" data-component-id="cyan_linear" data-color="#00FFFF" onclick="selectComponent('switch', 'cyan_linear', this)" class="component-item border border-border-dark p-3 rounded-lg flex items-center justify-between">
+                            <span class="font-medium">Cyan Linear (Silent)</span>
+                            <button onclick="event.stopPropagation(); simulateSound('silent')" class="text-xs text-text-light border border-accent-cyan rounded px-2 py-1 hover:bg-accent-cyan hover:text-primary-dark transition-colors ml-4">Sound Test</button>
+                        </div>
+                        <div data-component-type="switch" data-component-id="phantom_tactile" data-color="#FF00FF" onclick="selectComponent('switch', 'phantom_tactile', this)" class="component-item border border-border-dark p-3 rounded-lg flex items-center justify-between">
+                            <span class="font-medium">Phantom Tactile</span>
+                            <button onclick="event.stopPropagation(); simulateSound('clicky')" class="text-xs text-text-light border border-accent-cyan rounded px-2 py-1 hover:bg-accent-cyan hover:text-primary-dark transition-colors ml-4">Sound Test</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="keycap-selection">
+                    <h3 class="text-lg font-semibold border-b border-border-dark pb-2 mb-3 text-accent-cyan">3. Keycaps</h3>
+                    <div class="space-y-2">
+                        <div data-component-type="keycap" data-component-id="matrix_pbt" data-color="#E0E0E0" onclick="selectComponent('keycap', 'matrix_pbt', this)" class="component-item border border-border-dark p-3 rounded-lg flex items-center justify-between">
+                            <span class="font-medium">Matrix PBT (White)</span>
+                            <span class="text-sm text-accent-cyan">$75</span>
+                        </div>
+                        <div data-component-type="keycap" data-component-id="terminal_abs" data-color="#121212" onclick="selectComponent('keycap', 'terminal_abs', this)" class="component-item border border-border-dark p-3 rounded-lg flex items-center justify-between">
+                            <span class="font-medium">Terminal ABS (Black)</span>
+                            <span class="text-sm text-accent-cyan">$60</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Price and CTA -->
+            <div class="mt-8 pt-4 border-t border-border-dark sticky bottom-0 bg-primary-dark z-20">
+                <p id="total-price" class="text-xl font-bold mb-4 flex justify-between">
+                    <span>Total Estimate:</span>
+                    <span class="text-accent-cyan">$574</span>
+                </p>
+                <button onclick="showMessage('Added custom build to cart! Redirecting to checkout...')" class="w-full h-12 bg-accent-cyan text-primary-dark font-extrabold rounded-lg hover:bg-opacity-80 transition-opacity flex items-center justify-center">
+                    <i data-lucide="shopping-cart" class="w-5 h-5 mr-2"></i>
+                    ADD CUSTOM BUILD
+                </button>
+            </div>
+        </aside>
+
+        <!-- 3D Visualization Area (Right) -->
+        <div id="canvas-container" class="flex-1 relative">
+            <canvas id="three-canvas"></canvas>
+            <div id="sound-indicator" class="absolute top-4 left-1/2 -translate-x-1/2 p-2 bg-primary-dark/70 text-accent-cyan border border-accent-cyan rounded-lg text-sm font-mono opacity-0 transition-opacity duration-300">
+                Simulating Sound: Linear
+            </div>
+            <div id="3d-instructions" class="absolute bottom-4 left-1/2 -translate-x-1/2 p-2 bg-primary-dark/70 text-text-light/80 rounded-lg text-sm">
+                Click and drag to rotate the keyboard model.
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Message Box (for alerts/confirmations) -->
+    <div id="custom-modal" class="fixed inset-0 bg-primary-dark bg-opacity-80 backdrop-blur-sm z-50 flex items-center justify-center hidden" onclick="this.classList.add('hidden')">
+        <div class="bg-primary-dark border border-accent-cyan p-6 rounded-xl w-80 shadow-2xl" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-bold text-accent-cyan mb-3" id="modal-title">Notification</h3>
+            <p class="text-text-light mb-5" id="modal-message">This is a custom message.</p>
+            <button onclick="document.getElementById('custom-modal').classList.add('hidden')" class="w-full py-2 bg-accent-cyan text-primary-dark font-bold rounded-lg hover:opacity-80 transition-opacity">
+                Dismiss
+            </button>
+        </div>
+    </div>
+    
+    <!-- Firebase SDK Imports (Mandatory for compliance) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // Initialize Firebase
+        let app, db, auth;
+        
+        async function initializeFirebase() {
+            try {
+                if (Object.keys(firebaseConfig).length === 0 || !firebaseConfig.apiKey) {
+                    console.error("Firebase config is missing or invalid. Authentication and Firestore will be skipped.");
+                    return;
+                }
+                
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                setLogLevel('Debug');
+
+                auth = getAuth(app);
+                
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                const userId = auth.currentUser?.uid || 'anonymous-user';
+                console.log(`Firebase initialized. User ID: ${userId}`);
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+            }
+        }
+
+        initializeFirebase();
+    </script>
+    
+    <script>
+        // --- Core Application Logic ---
+
+        // Component Data Store
+        const components = {
+            case: {
+                cyber_alu: { price: 299, color: 0x333333, width: 2.5, height: 0.1, depth: 1.0 },
+                stealth_poly: { price: 180, color: 0x000000, width: 2.0, height: 0.12, depth: 0.8 },
+            },
+            switch: {
+                cyan_linear: { price: 0.50, color: 0x00FFFF, sound: 'sine' },
+                phantom_tactile: { price: 0.65, color: 0xFF00FF, sound: 'square' },
+            },
+            keycap: {
+                matrix_pbt: { price: 75, color: 0xE0E0E0 },
+                terminal_abs: { price: 60, color: 0x121212 },
+            }
+        };
+
+        // Current Build State
+        let currentBuild = {
+            case: components.case.cyber_alu,
+            switch: components.switch.cyan_linear,
+            keycap: components.keycap.matrix_pbt,
+        };
+
+        // --- Three.js Setup ---
+        let scene, camera, renderer, keyboardGroup;
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        const canvasContainer = document.getElementById('canvas-container');
+
+        // Three.js Initialization
+        function initThreeJS() {
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x121212); // Deep Charcoal/Black
+
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(50, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+            camera.position.set(0, 1.5, 3);
+            camera.lookAt(0, 0, 0);
+
+            // 3. Renderer
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('three-canvas'), antialias: true });
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            
+            // 4. Lighting
+            const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.5);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1.0);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+            
+            // 5. Keyboard Group
+            keyboardGroup = new THREE.Group();
+            scene.add(keyboardGroup);
+
+            // 6. Create initial model
+            createKeyboardModel();
+            
+            // 7. Event Listeners for Rotation
+            window.addEventListener('resize', onWindowResize);
+            canvasContainer.addEventListener('mousedown', onMouseDown);
+            canvasContainer.addEventListener('mouseup', onMouseUp);
+            canvasContainer.addEventListener('mousemove', onMouseMove);
+            
+            // Start the animation loop
+            animate();
+            
+            // Initial selection styling
+            document.querySelector('[data-component-id="cyber_alu"]').classList.add('selected');
+            document.querySelector('[data-component-id="cyan_linear"]').classList.add('selected');
+            document.querySelector('[data-component-id="matrix_pbt"]').classList.add('selected');
+        }
+
+        // Creates or updates the 3D keyboard model
+        function createKeyboardModel() {
+            // Clear existing models
+            while(keyboardGroup.children.length > 0){ 
+                keyboardGroup.remove(keyboardGroup.children[0]); 
+            }
+
+            const caseData = currentBuild.case;
+            const keycapData = currentBuild.keycap;
+            const switchData = currentBuild.switch;
+
+            // 1. Case Model (Base Plate)
+            const caseGeometry = new THREE.BoxGeometry(caseData.width, caseData.height, caseData.depth);
+            const caseMaterial = new THREE.MeshPhongMaterial({ color: caseData.color, shininess: 30 });
+            const caseMesh = new THREE.Mesh(caseGeometry, caseMaterial);
+            caseMesh.position.y = 0;
+            keyboardGroup.add(caseMesh);
+
+            // 2. Keycaps (Represent 6 keycaps for simplicity)
+            const keycapGeometry = new THREE.BoxGeometry(0.15, 0.2, 0.15);
+            const keycapMaterial = new THREE.MeshPhongMaterial({ color: keycapData.color, shininess: 50 });
+            const keysPerRow = 6;
+            const keySpacing = 0.25;
+
+            // Mock Switch and Keycap visualization
+            for (let i = 0; i < keysPerRow; i++) {
+                // Switch Stem (small cube in accent color)
+                const switchGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+                const switchMaterial = new THREE.MeshBasicMaterial({ color: switchData.color });
+                const switchMesh = new THREE.Mesh(switchGeometry, switchMaterial);
+                switchMesh.position.set(
+                    (i - keysPerRow / 2 + 0.5) * keySpacing,
+                    caseData.height / 2 + 0.05, // Slightly above the case
+                    0
+                );
+                keyboardGroup.add(switchMesh);
+
+                // Keycap
+                const keycapMesh = new THREE.Mesh(keycapGeometry, keycapMaterial);
+                keycapMesh.position.set(
+                    (i - keysPerRow / 2 + 0.5) * keySpacing,
+                    caseData.height / 2 + 0.2 + 0.05, // Above the switch stem
+                    0
+                );
+                keyboardGroup.add(keycapMesh);
+            }
+
+            // Center the group
+            keyboardGroup.position.set(0, -caseData.height / 2, 0);
+        }
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        // Handle Window Resize
+        function onWindowResize() {
+            camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+        }
+
+        // Rotation Controls
+        function onMouseDown(event) {
+            isDragging = true;
+            previousMousePosition.x = event.clientX;
+            previousMousePosition.y = event.clientY;
+        }
+
+        function onMouseUp(event) {
+            isDragging = false;
+        }
+
+        function onMouseMove(event) {
+            if (!isDragging) return;
+            const deltaX = event.clientX - previousMousePosition.x;
+            const deltaY = event.clientY - previousMousePosition.y;
+
+            // Rotate the group based on mouse movement
+            keyboardGroup.rotation.y += deltaX * 0.01;
+            keyboardGroup.rotation.x += deltaY * 0.01;
+            
+            // Clamp X rotation to prevent flipping
+            keyboardGroup.rotation.x = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, keyboardGroup.rotation.x));
+            
+            previousMousePosition.x = event.clientX;
+            previousMousePosition.y = event.clientY;
+        }
+
+
+        // --- UI and State Management ---
+
+        // Update the Total Price in the UI
+        function updatePrice() {
+            const casePrice = currentBuild.case ? currentBuild.case.price : 0;
+            // Assuming a full set has 100 keys
+            const keyPrice = currentBuild.switch ? currentBuild.switch.price * 100 : 0;
+            const keycapPrice = currentBuild.keycap ? currentBuild.keycap.price : 0;
+            const total = casePrice + keyPrice + keycapPrice;
+            document.getElementById('total-price').querySelector('span:last-child').textContent = `$${total.toFixed(2)}`;
+        }
+
+        // Handles component selection
+        function selectComponent(type, id, element) {
+            // Remove 'selected' class from all siblings of the same type
+            document.querySelectorAll(`[data-component-type="${type}"]`).forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            // Add 'selected' class to the clicked element
+            element.classList.add('selected');
+
+            // Update state
+            currentBuild[type] = components[type][id];
+            
+            // Re-render 3D model
+            createKeyboardModel();
+            
+            // Update price
+            updatePrice();
+        }
+
+        // Tone.js Sound Simulation (USP Feature)
+        let synth = new Tone.MonoSynth({
+            oscillator: { type: "square" },
+            envelope: {
+                attack: 0.005,
+                decay: 0.2,
+                sustain: 0.1,
+                release: 0.5,
+            }
+        }).toDestination();
+
+        async function simulateSound(type) {
+            // Make sure the audio context is active (necessary for modern browsers)
+            await Tone.start();
+
+            const indicator = document.getElementById('sound-indicator');
+            indicator.textContent = `Simulating Sound: ${type}`;
+            indicator.classList.remove('opacity-0');
+            
+            // Map type to sound settings
+            if (type === 'silent') {
+                synth.oscillator.type = "sine";
+                synth.triggerAttackRelease("C4", "8n");
+            } else if (type === 'clicky') {
+                synth.oscillator.type = "square";
+                synth.triggerAttackRelease("G3", "16n");
+            }
+
+            // Hide indicator after a delay
+            setTimeout(() => {
+                indicator.classList.add('opacity-0');
+            }, 750);
+        }
+        
+        // Custom Message/Alert Box
+        function showMessage(message, title = 'Attention') {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').textContent = message;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function changeScreen(screenName) {
+            // Placeholder function for navigation since this is a single-screen demo
+            if (screenName === 'profile') {
+                showMessage('This is the User Profile screen. Here you could see a gallery of your custom builds and order history.', 'User Profile');
+            } else if (screenName === 'checkout') {
+                showMessage('Initiating checkout for your custom build. Total: ' + document.getElementById('total-price').querySelector('span:last-child').textContent, 'Checkout');
+            }
+        }
+
+
+        // Wait for the window to fully load before initializing 3D and Lucide icons
+        window.onload = function () {
+            initThreeJS();
+            // Feather replace logic (for Lucide icons)
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+    </script>
+</body>
+</html>
